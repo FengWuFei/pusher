@@ -64,15 +64,17 @@ func newTaskAndRun(
     return task
 }
 
-let arguments = [
-    "-re",
-    "-i", "udp://225.1.10.1:2000",
-    "-vcodec", "copy",
-    "-acodec", "copy",
-    "-bsf:a", "aac_adtstoasc",
-    "-f", "flv",
-    "rtmp://10.15.100.224/live/swift"
-]
+let arguments = (1...1).map {
+    return [
+        "-re",
+        "-i", "udp://226.151.1.\($0):2000",
+        "-vcodec", "copy",
+        "-acodec", "copy",
+        "-bsf:a", "aac_adtstoasc",
+        "-f", "flv",
+        "rtmp://10.15.100.224/live/swift\($0)"
+    ]
+}
 
 func pushStream(arguments: [String]) -> Process {
     let p =  newTaskAndRun(executablePath: "/usr/local/Cellar/ffmpeg/4.1.1/bin/ffmpeg", directoryPath: "/Users/liuyi/Desktop", arguments: arguments) {
@@ -83,7 +85,7 @@ func pushStream(arguments: [String]) -> Process {
 
 var plist = [Process]()
 
-(1...5).forEach { _ in
+arguments.forEach { arguments in
     let p = pushStream(arguments: arguments)
     plist.append(p)
 }
@@ -97,5 +99,3 @@ func exitGracefully(pid: CInt) {
 signal(SIGINT, exitGracefully)
 signal(SIGTERM, exitGracefully)
 dispatchMain()
-
-
