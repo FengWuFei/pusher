@@ -4,31 +4,34 @@ import Foundation
 
 let cli = CommandLineKit.CommandLine()
 
-cli.formatOutput = { s, type in
-    var str: String
+cli.formatOutput = { str, type in
+    var string: String
     switch(type) {
     case .error:
-        str = s.red.bold
+        string = str.red.bold
     case .optionFlag:
-        str = s.green.underline
+        string = str.green
     case .optionHelp:
-        str = s.blue
+        string = str.lightMagenta
     default:
-        str = s
+        string = str
     }
-    return cli.defaultFormat(s: str, type: type)
+    return cli.defaultFormat(s: string, type: type)
 }
 
-let filePath = StringOption(shortFlag: "f", longFlag: "file", required: true,
-                            helpMessage: "Path to the output file. 哈哈😁")
-let compress = BoolOption(shortFlag: "c", longFlag: "compress",
-                          helpMessage: "Use data compression.")
+let streamName = StringOption(shortFlag: "n", longFlag: "name", required: true,
+                            helpMessage: "[必需]视频流名字")
+let startAddress = StringOption(shortFlag: "s", longFlag: "start", required: true,
+                                helpMessage: "[必需]开始的组播地址,例如：225.1.10.1:2000")
+let streamCount = IntOption(shortFlag: "c", longFlag: "count", required: true,
+                            helpMessage: "[必需]推流数量，例如：10")
+let shouldOut = BoolOption(shortFlag: "o", longFlag: "out",
+                           helpMessage: "[可选]默认不输出, 需要输出: -o true")
+let target = StringOption(shortFlag: "t", longFlag: "target", required: true,
+                       helpMessage: "[可选]目的rtmp地址，默认: rtmp://10.15.100.224/live/")
 let help = BoolOption(shortFlag: "h", longFlag: "help",
-                      helpMessage: "Prints a help message.")
-let verbosity = CounterOption(shortFlag: "v", longFlag: "verbose",
-                              helpMessage: "Print verbose messages. Specify multiple times to increase verbosity.")
-
-cli.addOptions(filePath, compress, help, verbosity)
+                      helpMessage: "[可选]帮助说明")
+cli.addOptions(streamName, startAddress, streamCount, shouldOut, target, help)
 
 do {
     try cli.parse()
@@ -37,61 +40,83 @@ do {
     exit(EX_USAGE)
 }
 
-print("File path is \(filePath.value!)")
-print("Compress is \(compress.value)")
-print("Verbosity is \(verbosity.value)")
+let name = streamName.value!
+let startAddressValue = startAddress.value!
+let streamCountValue = streamCount.value!
+let shouldOutValue = shouldOut.value
+let targetAddress = target.value ?? "rtmp://10.15.100.224/live/"
 
-//@discardableResult
-//func newTaskAndRun(
-//    qualityOfService: QualityOfService = .userInitiated,
-//    executablePath: String,
-//    directoryPath: String,
-//    arguments: [String],
-//    terminationHandler: @escaping () -> Void) -> Process {
-//    let task = Process()
-//    if #available(OSX 10.13, *) {
-//        task.executableURL = URL(fileURLWithPath: executablePath)
-//        task.currentDirectoryURL = URL(fileURLWithPath: directoryPath, isDirectory: true)
-//    } else {
-//        fatalError("version should be OSX 10.13+")
-//    }
-//    task.qualityOfService = qualityOfService
-//    task.arguments = arguments
-//    task.terminationHandler = { _ in
-//        terminationHandler()
-//    }
-//    task.launch()
-//    return task
-//}
-//
-//let arguments = (1...30).map {
-//    return [
-//        "-re",
-//        "-i", "udp://226.151.1.\($0):2000?overrun_nonfatal=1&fifo_size=50000000",
-//        "-vcodec", "copy",
-//        "-acodec", "copy",
-//        "-bsf:a", "aac_adtstoasc",
-//        "-f", "flv",
-//        "rtmp://10.15.100.224/live/swift\($0)"
-//    ]
-//}
-//
-//func pushStream(arguments: [String]) -> Process {
-//    let p =  newTaskAndRun(executablePath: "/usr/bin/ffmpeg", directoryPath: "/home", arguments: arguments) {
-//        print("exit: \(arguments[2])")
-//    }
-//    return p
-//}
-//
-//var plist = [Process]()
-//
-//arguments.forEach { arguments in
-//    let p = pushStream(arguments: arguments)
-//    plist.append(p)
-//}
+if help.value {
+    cli.printUsage()
+    exit(EX_USAGE)
+}
+
+@discardableResult
+func newTaskAndRun(
+    qualityOfService: QualityOfService = .userInitiated,
+    executablePath: String,
+    directoryPath: String,
+    arguments: [String],
+    terminationHandler: @escaping () -> Void) -> Process {
+    let task = Process()
+    if #available(OSX 10.13, *) {
+        task.executableURL = URL(fileURLWithPath: executablePath)
+        task.currentDirectoryURL = URL(fileURLWithPath: directoryPath, isDirectory: true)
+    } else {
+        fatalError("version should be OSX 10.13+")
+    }
+
+    if !shouldOutValue {
+        let out = Pipe()
+        let error = Pipe()
+        task.standardOutput = out
+        task.standardError = error
+    }
+    task.qualityOfService = qualityOfService
+    task.arguments = arguments
+    task.terminationHandler = { _ in
+        terminationHandler()
+    }
+    task.launch()
+    return task
+}
+
+let str = startAddressValue
+var slices = str.split(separator: ".")
+var endStr = slices[3].split(separator: ":")
+let startNum = Int(endStr[0])!
+
+let arguments = (startNum...(startNum + streamCountValue - 1)).map { num -> [String] in
+    endStr[0] = Substring(String(num))
+    slices[3] = Substring(endStr.joined(separator: ":"))
+    let udpAddress = slices.joined(separator: ".")
+    return [
+        "-re",
+        "-i", "udp://\(udpAddress)?overrun_nonfatal=1&fifo_size=50000000",
+        "-vcodec", "copy",
+        "-acodec", "copy",
+        "-bsf:a", "aac_adtstoasc",
+        "-f", "flv",
+        "\(targetAddress)\(name)\(num)"
+    ]
+}
+
+func pushStream(arguments: [String]) -> Process {
+    let p =  newTaskAndRun(executablePath: "/usr/bin/ffmpeg", directoryPath: "/home", arguments: arguments) {
+        print("exit: \(arguments[2])".red.underline.bold)
+    }
+    return p
+}
+
+var plist = [Process]()
+
+arguments.forEach { arguments in
+    let p = pushStream(arguments: arguments)
+    plist.append(p)
+}
 
 func exitGracefully(pid: CInt) {
-//    plist.forEach { $0.terminate() }
+    plist.forEach { $0.terminate() }
     print("exitGracefully: \(pid)")
     exit(EX_USAGE)
 }
