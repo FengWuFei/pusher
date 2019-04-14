@@ -77,7 +77,7 @@ let arguments = (1...1).map {
 }
 
 func pushStream(arguments: [String]) -> Process {
-    let p =  newTaskAndRun(executablePath: "/usr/local/Cellar/ffmpeg/4.1.1/bin/ffmpeg", directoryPath: "/Users/liuyi/Desktop", arguments: arguments) {
+    let p =  newTaskAndRun(executablePath: "/usr/local/Cellar/ffmpeg/4.1.1/bin/ffmpeg", directoryPath: "/home", arguments: arguments) {
         print(1122233)
     }
     return p
