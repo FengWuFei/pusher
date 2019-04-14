@@ -27,7 +27,7 @@ let streamCount = IntOption(shortFlag: "c", longFlag: "count", required: true,
                             helpMessage: "[必需]推流数量，例如：10")
 let shouldOut = BoolOption(shortFlag: "o", longFlag: "out",
                            helpMessage: "[可选]默认不输出, 需要输出: -o true")
-let target = StringOption(shortFlag: "t", longFlag: "target", required: true,
+let target = StringOption(shortFlag: "t", longFlag: "target",
                        helpMessage: "[可选]目的rtmp地址，默认: rtmp://10.15.100.224/live/")
 let help = BoolOption(shortFlag: "h", longFlag: "help",
                       helpMessage: "[可选]帮助说明")
