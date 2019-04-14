@@ -88,7 +88,7 @@ let startNum = Int(endStr[0])!
 
 let arguments = (startNum...(startNum + streamCountValue - 1)).map { num -> [String] in
     endStr[0] = Substring(String(num))
-    slices[3] = Substring(endStr.joined(separator: ":"))
+    slices[4] = Substring(endStr.joined(separator: ":"))
     let udpAddress = slices.joined(separator: ".")
     return [
         "-re",
