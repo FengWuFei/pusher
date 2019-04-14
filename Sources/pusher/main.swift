@@ -83,7 +83,7 @@ func newTaskAndRun(
 
 let str = startAddressValue
 var slices = str.split(separator: ".")
-var endStr = slices[3].split(separator: ":")
+var endStr = slices[4].split(separator: ":")
 let startNum = Int(endStr[0])!
 
 let arguments = (startNum...(startNum + streamCountValue - 1)).map { num -> [String] in
@@ -113,6 +113,7 @@ var plist = [Process]()
 arguments.forEach { arguments in
     let p = pushStream(arguments: arguments)
     plist.append(p)
+    print("pushing: \(arguments[2]) to \(arguments[11])".green.bold)
 }
 
 func exitGracefully(pid: CInt) {
