@@ -20,7 +20,7 @@ cli.formatOutput = { s, type in
 }
 
 let filePath = StringOption(shortFlag: "f", longFlag: "file", required: true,
-                            helpMessage: "Path to the output file.")
+                            helpMessage: "Path to the output file. 哈哈😁")
 let compress = BoolOption(shortFlag: "c", longFlag: "compress",
                           helpMessage: "Use data compression.")
 let help = BoolOption(shortFlag: "h", longFlag: "help",
