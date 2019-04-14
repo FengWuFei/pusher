@@ -67,7 +67,7 @@ func newTaskAndRun(
 let arguments = (1...1).map {
     return [
         "-re",
-        "-i", "udp://226.151.1.\($0):2000",
+        "-i", "udp://226.151.1.\($0):2000?overrun_nonfatal=1&fifo_size=50000000",
         "-vcodec", "copy",
         "-acodec", "copy",
         "-bsf:a", "aac_adtstoasc",
