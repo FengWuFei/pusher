@@ -64,7 +64,7 @@ func newTaskAndRun(
     return task
 }
 
-let arguments = (1...1).map {
+let arguments = (1...30).map {
     return [
         "-re",
         "-i", "udp://226.151.1.\($0):2000?overrun_nonfatal=1&fifo_size=50000000",
@@ -78,7 +78,7 @@ let arguments = (1...1).map {
 
 func pushStream(arguments: [String]) -> Process {
     let p =  newTaskAndRun(executablePath: "/usr/bin/ffmpeg", directoryPath: "/home", arguments: arguments) {
-        print(1122233)
+        print("exit: \(arguments[2])")
     }
     return p
 }
