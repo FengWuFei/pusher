@@ -123,4 +123,6 @@ func exitGracefully(pid: CInt) {
 
 signal(SIGINT, exitGracefully)
 signal(SIGTERM, exitGracefully)
+
+print("推流中...".green.bold)
 dispatchMain()
