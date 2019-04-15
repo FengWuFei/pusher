@@ -102,7 +102,7 @@ let arguments = (startNum...(startNum + streamCountValue - 1)).map { num -> [Str
 }
 
 func pushStream(arguments: [String]) -> Process {
-    let p =  newTaskAndRun(executablePath: "/usr/bin/ffmpeg", directoryPath: "/home", arguments: arguments) {
+    let p =  newTaskAndRun(executablePath: "/usr/local/bin/", directoryPath: "/home", arguments: arguments) {
         print("exit: \(arguments[2])".red.underline.bold)
     }
     return p
