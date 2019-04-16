@@ -81,11 +81,11 @@ addressValue.forEach { v in
 
 func detect() -> String {
     let fileBasedWorkDir: String?
-    
+
     #if Xcode
     // attempt to find working directory through #file
     let file = #file
-    
+
     if file.contains(".build") {
         // most dependencies are in `./.build/`
         fileBasedWorkDir = file.components(separatedBy: "/.build").first
@@ -99,7 +99,7 @@ func detect() -> String {
     #else
     fileBasedWorkDir = nil
     #endif
-    
+
     let workDir: String
     if let fileBasedWorkDir = fileBasedWorkDir {
         workDir = fileBasedWorkDir
@@ -109,14 +109,14 @@ func detect() -> String {
         defer {
             free(cwd)
         }
-        
+
         if let cwd = cwd, let string = String(validatingUTF8: cwd) {
             workDir = string
         } else {
             workDir = "./"
         }
     }
-    
+
     return workDir.hasSuffix("/") ? workDir : workDir + "/"
 }
 
@@ -144,7 +144,7 @@ func newTaskAndRun(
 }
 
 var streamIndex = 0
-let arguments = addressValue.map { address -> [String] in
+let arguments = addressArray.map { address -> [String] in
     streamIndex += 1
     return [
         "-re",
