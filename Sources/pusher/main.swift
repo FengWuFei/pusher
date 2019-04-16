@@ -160,20 +160,24 @@ let arguments = addressArray.map { address -> [String] in
 func pushStream(arguments: [String]) -> Process {
     let p =  newTaskAndRun(executablePath: executablePath, directoryPath: detect(), arguments: arguments) {
         print("exit: \(arguments[2])".red.underline.bold)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
+            let p = pushStream(arguments: arguments)
+            plist[arguments[2]] = p
+        }
     }
     return p
 }
 
-var plist = [Process]()
+var plist = [String: Process]()
 
 arguments.forEach { arguments in
     let p = pushStream(arguments: arguments)
-    plist.append(p)
+    plist[arguments[2]] = p
     print("pushing: \(arguments[2]) to \(arguments[11])".green.bold)
 }
 
 func exitGracefully(pid: CInt) {
-    plist.forEach { $0.terminate() }
+    plist.forEach { $0.value.terminate() }
     print("exitGracefully: \(pid)")
     exit(EX_USAGE)
 }
