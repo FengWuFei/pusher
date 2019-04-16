@@ -21,17 +21,14 @@ cli.formatOutput = { str, type in
 
 let streamName = StringOption(shortFlag: "n", longFlag: "name", required: true,
                             helpMessage: "[必需]视频流名字")
-let startAddress = StringOption(shortFlag: "s", longFlag: "start", required: true,
-                                helpMessage: "[必需]开始的组播地址,例如：225.1.10.1:2000")
-let streamCount = IntOption(shortFlag: "c", longFlag: "count", required: true,
-                            helpMessage: "[必需]推流数量，例如：10")
-let shouldOut = BoolOption(shortFlag: "o", longFlag: "out",
-                           helpMessage: "[可选]默认不输出, 需要输出: -o true")
+let mulAddress = MultiStringOption(shortFlag: "m", longFlag: "multi", required: true,
+                                   helpMessage: "[必需]组播地址范围,例如：225.1.10.1-20:2000 225.2.10.3-20:2000")
 let target = StringOption(shortFlag: "t", longFlag: "target",
                        helpMessage: "[可选]目的rtmp地址，默认: rtmp://10.15.100.224/live/")
-let help = BoolOption(shortFlag: "h", longFlag: "help",
-                      helpMessage: "[可选]帮助说明")
-cli.addOptions(streamName, startAddress, streamCount, shouldOut, target, help)
+let path = StringOption(shortFlag: "p", longFlag: "Path",
+                          helpMessage: "[可选]ffmpeg可执行文件地址，默认: /usr/local/bin/ffmpeg")
+
+cli.addOptions(streamName, mulAddress, target, path)
 
 do {
     try cli.parse()
@@ -41,19 +38,91 @@ do {
 }
 
 let name = streamName.value!
-let startAddressValue = startAddress.value!
-let streamCountValue = streamCount.value!
-let shouldOutValue = shouldOut.value
+let addressValue = mulAddress.value!
 let targetAddress = target.value ?? "rtmp://10.15.100.224/live/"
+let executablePath = path.value ?? "/usr/local/bin/ffmpeg"
 
-if help.value {
-    cli.printUsage()
-    exit(EX_USAGE)
+func assertNotNil<T>(_ value: Optional<T>, message: String) -> T {
+    guard let res = value else {
+        print("wraong: \(message) is nil".red.bold)
+        exit(EX_USAGE)
+    }
+    return res
+}
+
+func assertArrayCount<T>(array: [T], count: Int) {
+    if array.count != count {
+        print("wraong: \(array)".red.bold)
+        exit(EX_USAGE)
+    }
+}
+
+var addressArray = [String]()
+addressValue.forEach { v in
+    if v.contains("-") {
+        let strs = v.split(separator: "-")
+        assertArrayCount(array: strs, count: 2)
+        var topList = strs[0].split(separator: ".")
+        var bottomList = strs[1].split(separator: ":")
+        assertArrayCount(array: topList, count: 4)
+        assertArrayCount(array: bottomList, count: 2)
+
+        let startIndex = assertNotNil(Int(String(topList[3])), message: "startIndex")
+        let endIndex = assertNotNil(Int(String(bottomList[0])), message: "endIndex")
+        (startIndex...endIndex).forEach { index in
+            topList[3] = Substring.SubSequence(String(index))
+            let res = topList.joined(separator: ".") + ":" + String(bottomList[1])
+            addressArray.append(res)
+        }
+    } else {
+        addressArray.append(v)
+    }
+}
+
+func detect() -> String {
+    let fileBasedWorkDir: String?
+    
+    #if Xcode
+    // attempt to find working directory through #file
+    let file = #file
+    
+    if file.contains(".build") {
+        // most dependencies are in `./.build/`
+        fileBasedWorkDir = file.components(separatedBy: "/.build").first
+    } else if file.contains("Packages") {
+        // when editing a dependency, it is in `./Packages/`
+        fileBasedWorkDir = file.components(separatedBy: "/Packages").first
+    } else {
+        // when dealing with current repository, file is in `./Sources/`
+        fileBasedWorkDir = file.components(separatedBy: "/Sources").first
+    }
+    #else
+    fileBasedWorkDir = nil
+    #endif
+    
+    let workDir: String
+    if let fileBasedWorkDir = fileBasedWorkDir {
+        workDir = fileBasedWorkDir
+    } else {
+        // get actual working directory
+        let cwd = getcwd(nil, Int(PATH_MAX))
+        defer {
+            free(cwd)
+        }
+        
+        if let cwd = cwd, let string = String(validatingUTF8: cwd) {
+            workDir = string
+        } else {
+            workDir = "./"
+        }
+    }
+    
+    return workDir.hasSuffix("/") ? workDir : workDir + "/"
 }
 
 @discardableResult
 func newTaskAndRun(
-    qualityOfService: QualityOfService = .userInitiated,
+    qualityOfService: QualityOfService = QualityOfService.userInteractive,
     executablePath: String,
     directoryPath: String,
     arguments: [String],
@@ -65,13 +134,6 @@ func newTaskAndRun(
     } else {
         fatalError("version should be OSX 10.13+")
     }
-
-    if !shouldOutValue {
-        let out = Pipe()
-        let error = Pipe()
-        task.standardOutput = out
-        task.standardError = error
-    }
     task.qualityOfService = qualityOfService
     task.arguments = arguments
     task.terminationHandler = { _ in
@@ -81,28 +143,22 @@ func newTaskAndRun(
     return task
 }
 
-let str = startAddressValue
-var slices = str.split(separator: ".")
-var endStr = slices[3].split(separator: ":")
-let startNum = Int(endStr[0])!
-
-let arguments = (startNum...(startNum + streamCountValue - 1)).map { num -> [String] in
-    endStr[0] = Substring(String(num))
-    slices[3] = Substring(endStr.joined(separator: ":"))
-    let udpAddress = slices.joined(separator: ".")
+var streamIndex = 0
+let arguments = addressValue.map { address -> [String] in
+    streamIndex += 1
     return [
         "-re",
-        "-i", "udp://\(udpAddress)?overrun_nonfatal=1&fifo_size=50000000",
+        "-i", "udp://\(address)?overrun_nonfatal=1&fifo_size=50000000",
         "-vcodec", "copy",
         "-acodec", "copy",
         "-bsf:a", "aac_adtstoasc",
         "-f", "flv",
-        "\(targetAddress)\(name)\(num)"
+        "\(targetAddress)\(name)\(streamIndex)"
     ]
 }
 
 func pushStream(arguments: [String]) -> Process {
-    let p =  newTaskAndRun(executablePath: "/usr/local/bin/ffmpeg", directoryPath: "/home", arguments: arguments) {
+    let p =  newTaskAndRun(executablePath: executablePath, directoryPath: detect(), arguments: arguments) {
         print("exit: \(arguments[2])".red.underline.bold)
     }
     return p
