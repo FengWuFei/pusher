@@ -148,7 +148,7 @@ let arguments = addressArray.map { address -> [String] in
     streamIndex += 1
     return [
         "-re",
-        "-i", "udp://\(address)?overrun_nonfatal=1&fifo_size=50000000",
+        "-i", "udp://\(address)?overrun_nonfatal=1&fifo_size=10000000",
         "-vcodec", "copy",
         "-acodec", "copy",
         "-bsf:a", "aac_adtstoasc",
@@ -186,4 +186,6 @@ signal(SIGINT, exitGracefully)
 signal(SIGTERM, exitGracefully)
 
 print("推流中...".green.bold)
+
 dispatchMain()
+
