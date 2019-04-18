@@ -147,11 +147,9 @@ var streamIndex = 0
 let arguments = addressArray.map { address -> [String] in
     streamIndex += 1
     return [
-        "-re",
         "-i", "udp://\(address)?overrun_nonfatal=1&fifo_size=10000000",
-        "-vcodec", "copy",
-        "-acodec", "copy",
         "-bsf:a", "aac_adtstoasc",
+        "-codec", "copy",
         "-f", "flv",
         "\(targetAddress)\(name)\(streamIndex)"
     ]
@@ -187,5 +185,5 @@ signal(SIGTERM, exitGracefully)
 
 print("推流中...".green.bold)
 
-dispatchMain()
-
+let lock = NSConditionLock(condition: 0)
+lock.lock(whenCondition: 1)
