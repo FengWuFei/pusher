@@ -147,9 +147,10 @@ var streamIndex = 0
 let arguments = addressArray.map { address -> [String] in
     streamIndex += 1
     return [
-        "-i", "udp://\(address)?overrun_nonfatal=1&fifo_size=10000000",
+        "-i", "udp://\(address)",
+        "-acodec", "copy",
+        "-vcodec", "copy",
         "-bsf:a", "aac_adtstoasc",
-        "-codec", "copy",
         "-f", "flv",
         "\(targetAddress)\(name)\(streamIndex)"
     ]
@@ -158,10 +159,8 @@ let arguments = addressArray.map { address -> [String] in
 func pushStream(arguments: [String]) -> Process {
     let p =  newTaskAndRun(executablePath: executablePath, directoryPath: detect(), arguments: arguments) {
         print("exit: \(arguments[2])".red.underline.bold)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
-            let p = pushStream(arguments: arguments)
-            plist[arguments[2]] = p
-        }
+        let p = pushStream(arguments: arguments)
+        plist[arguments[2]] = p
     }
     return p
 }
@@ -170,23 +169,20 @@ var plist = [String: Process]()
 
 arguments.forEach { arguments in
     let p = pushStream(arguments: arguments)
-    plist[arguments[2]] = p
-    print("pushing: \(arguments[2]) to \(arguments[11])".green.bold)
+    plist[arguments[1]] = p
+    print("pushing: \(arguments[1])".green.bold)
 }
 
-func exitGracefully(pid: CInt) {
-    plist.forEach { $0.value.terminate() }
-    print("stop")
-    exit(EX_USAGE)
-}
-
-signal(SIGINT, exitGracefully)
-signal(SIGTERM, exitGracefully)
-
-print("推流中...".green.bold)
+//func exitGracefully(pid: CInt) {
+//    plist.forEach { $0.value.terminate() }
+//    print("stop")
+//    exit(EX_USAGE)
+//}
+//
+//signal(SIGINT, exitGracefully)
+//signal(SIGTERM, exitGracefully)
+//print("推流中...".green.bold)
 
 let lock = NSConditionLock(condition: 0)
 lock.lock(whenCondition: 1)
 lock.unlock()
-
-print("end")
