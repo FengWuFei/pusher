@@ -176,7 +176,7 @@ arguments.forEach { arguments in
 
 func exitGracefully(pid: CInt) {
     plist.forEach { $0.value.terminate() }
-    print("exitGracefully: \(pid)")
+    print("stop")
     exit(EX_USAGE)
 }
 
@@ -187,3 +187,6 @@ print("推流中...".green.bold)
 
 let lock = NSConditionLock(condition: 0)
 lock.lock(whenCondition: 1)
+lock.unlock()
+
+print("end")
