@@ -148,18 +148,20 @@ let arguments = addressArray.map { address -> [String] in
     streamIndex += 1
     return [
         "-i", "udp://\(address)",
-        "-acodec", "copy",
-        "-vcodec", "copy",
+        "-codec", "copy",
         "-bsf:a", "aac_adtstoasc",
         "-f", "flv",
         "\(targetAddress)\(name)\(streamIndex)"
     ]
 }
 
+var isExit = false
+
 func pushStream(arguments: [String]) -> Process {
     let p =  newTaskAndRun(executablePath: executablePath, directoryPath: detect(), arguments: arguments) {
-//        let p = pushStream(arguments: arguments)
-//        plist[arguments[2]] = p
+        guard !isExit else { return }
+        let p = pushStream(arguments: arguments)
+        plist[arguments[2]] = p
     }
     return p
 }
@@ -172,15 +174,16 @@ arguments.forEach { arguments in
     print("pushing: \(arguments[1])".green.bold)
 }
 
-//func exitGracefully(pid: CInt) {
-//    plist.forEach { $0.value.terminate() }
-//    print("stop")
-//    exit(EX_USAGE)
-//}
-//
-//signal(SIGINT, exitGracefully)
-//signal(SIGTERM, exitGracefully)
-//print("推流中...".green.bold)
+func exitGracefully(pid: CInt) {
+    isExit = true
+    plist.forEach { $0.value.terminate() }
+    print("stop")
+    exit(EX_USAGE)
+}
+
+signal(SIGINT, exitGracefully)
+signal(SIGTERM, exitGracefully)
+print("推流中...".green.bold)
 
 let lock = ConditionLock(value: 0)
 lock.lock(whenValue: 1)
