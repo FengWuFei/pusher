@@ -158,9 +158,8 @@ let arguments = addressArray.map { address -> [String] in
 
 func pushStream(arguments: [String]) -> Process {
     let p =  newTaskAndRun(executablePath: executablePath, directoryPath: detect(), arguments: arguments) {
-        print("exit: \(arguments[2])".red.underline.bold)
-        let p = pushStream(arguments: arguments)
-        plist[arguments[2]] = p
+//        let p = pushStream(arguments: arguments)
+//        plist[arguments[2]] = p
     }
     return p
 }
@@ -183,6 +182,6 @@ arguments.forEach { arguments in
 //signal(SIGTERM, exitGracefully)
 //print("推流中...".green.bold)
 
-let lock = NSConditionLock(condition: 0)
-lock.lock(whenCondition: 1)
+let lock = ConditionLock(value: 0)
+lock.lock(whenValue: 1)
 lock.unlock()
