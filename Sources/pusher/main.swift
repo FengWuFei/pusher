@@ -1,9 +1,9 @@
+import Foundation
 import CommandLineKit
 import Rainbow
-import Foundation
+import TaskKit
 
 let cli = CommandLineKit.CommandLine()
-
 cli.formatOutput = { str, type in
     var string: String
     switch(type) {
@@ -27,7 +27,6 @@ let target = StringOption(shortFlag: "t", longFlag: "target",
                        helpMessage: "[可选]目的rtmp地址，默认: rtmp://10.15.100.224/live/")
 let path = StringOption(shortFlag: "p", longFlag: "Path",
                           helpMessage: "[可选]ffmpeg可执行文件地址，默认: /usr/local/bin/ffmpeg")
-
 cli.addOptions(streamName, mulAddress, target, path)
 
 do {
@@ -79,105 +78,21 @@ addressValue.forEach { v in
     }
 }
 
-func detect() -> String {
-    let fileBasedWorkDir: String?
-
-    #if Xcode
-    // attempt to find working directory through #file
-    let file = #file
-
-    if file.contains(".build") {
-        // most dependencies are in `./.build/`
-        fileBasedWorkDir = file.components(separatedBy: "/.build").first
-    } else if file.contains("Packages") {
-        // when editing a dependency, it is in `./Packages/`
-        fileBasedWorkDir = file.components(separatedBy: "/Packages").first
-    } else {
-        // when dealing with current repository, file is in `./Sources/`
-        fileBasedWorkDir = file.components(separatedBy: "/Sources").first
-    }
-    #else
-    fileBasedWorkDir = nil
-    #endif
-
-    let workDir: String
-    if let fileBasedWorkDir = fileBasedWorkDir {
-        workDir = fileBasedWorkDir
-    } else {
-        // get actual working directory
-        let cwd = getcwd(nil, Int(PATH_MAX))
-        defer {
-            free(cwd)
-        }
-
-        if let cwd = cwd, let string = String(validatingUTF8: cwd) {
-            workDir = string
-        } else {
-            workDir = "./"
-        }
-    }
-
-    return workDir.hasSuffix("/") ? workDir : workDir + "/"
-}
-
-@discardableResult
-func newTaskAndRun(
-    qualityOfService: QualityOfService = QualityOfService.userInteractive,
-    executablePath: String,
-    directoryPath: String,
-    arguments: [String],
-    terminationHandler: @escaping () -> Void) -> Process {
-    let task = Process()
-    if #available(OSX 10.13, *) {
-        task.executableURL = URL(fileURLWithPath: executablePath)
-        task.currentDirectoryURL = URL(fileURLWithPath: directoryPath, isDirectory: true)
-    } else {
-        fatalError("version should be OSX 10.13+")
-    }
-    task.qualityOfService = qualityOfService
-    task.arguments = arguments
-    task.terminationHandler = { _ in
-        terminationHandler()
-    }
-    task.launch()
+var streamIndex = 0
+let tasks = addressArray.map { address -> Task in
+    streamIndex += 1
+    let task = PushTask(sourceUrl: "udp://\(address)",
+        targetUrl: "\(targetAddress)\(name)\(streamIndex)",
+        optionsInfo: [.executablePath(executablePath)])
     return task
 }
-
-var streamIndex = 0
-let arguments = addressArray.map { address -> [String] in
-    streamIndex += 1
-    return [
-        "-i", "udp://\(address)",
-        "-codec", "copy",
-        "-bsf:a", "aac_adtstoasc",
-        "-f", "flv",
-        "\(targetAddress)\(name)\(streamIndex)"
-    ]
-}
-
-var isExit = false
-
-func pushStream(arguments: [String]) -> Process {
-    let p =  newTaskAndRun(executablePath: executablePath, directoryPath: detect(), arguments: arguments) {
-        guard !isExit else { return }
-        let p = pushStream(arguments: arguments)
-        plist[arguments[2]] = p
-    }
-    return p
-}
-
-var plist = [String: Process]()
-
-arguments.forEach { arguments in
-    let p = pushStream(arguments: arguments)
-    plist[arguments[1]] = p
-    print("pushing: \(arguments[1])".green.bold)
-}
+let manager = TaskManager.shared
+tasks.forEach { manager.addTask($0) }
+manager.fireAll()
 
 func exitGracefully(pid: CInt) {
-    isExit = true
-    plist.forEach { $0.value.terminate() }
-    print("stop")
+    print("stopping...".red.underline)
+    manager.cancelAll()
     exit(EX_USAGE)
 }
 
@@ -187,4 +102,3 @@ print("推流中...".green.bold)
 
 let lock = ConditionLock(value: 0)
 lock.lock(whenValue: 1)
-lock.unlock()
