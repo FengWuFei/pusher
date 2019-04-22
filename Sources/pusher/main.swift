@@ -84,6 +84,9 @@ let tasks = addressArray.map { address -> Task in
     let task = PushTask(sourceUrl: "udp://\(address)",
         targetUrl: "\(targetAddress)\(name)\(streamIndex)",
         optionsInfo: [.executablePath(executablePath)])
+    task.onError = {
+        print($0.localizedDescription.red.bold)
+    }
     return task
 }
 let manager = TaskManager.shared
